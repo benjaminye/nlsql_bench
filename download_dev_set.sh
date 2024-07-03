@@ -1,11 +1,11 @@
-mkdir data
+mkdir ./llm/data
 
-wget https://bird-bench.oss-cn-beijing.aliyuncs.com/dev.zip
-unzip dev.zip
-rm dev.zip
+wget https://bird-bench.oss-cn-beijing.aliyuncs.com/minidev.zip
+unzip minidev.zip
+rm minidev.zip
 
-unzip ./dev_20240627/dev_databases.zip -d ./llm/mini_dev_data/
-rm ./dev_20240627/dev_databases.zip
+mv ./minidev/MINIDEV/dev_databases ./llm/mini_dev_data
+mv ./minidev/MINIDEV/dev* ./llm/data
+mv ./minidev/MINIDEV/mini_dev* ./llm/data
 
-mv ./dev_20240627/dev* ./data
-rm -rf ./dev_20240627
+rm -rf ./minidev
