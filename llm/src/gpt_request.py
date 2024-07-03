@@ -7,6 +7,8 @@ from tqdm import tqdm
 import time
 from concurrent.futures import ThreadPoolExecutor
 import concurrent.futures
+import csv
+
 
 from prompt import generate_combined_prompts_one
 
@@ -29,7 +31,6 @@ def connect_gpt(engine, prompt, max_tokens, temperature, stop, client):
     for i in range(MAX_API_RETRY):
         time.sleep(2)
         try:
-
             if engine == "gpt-35-turbo-instruct":
                 result = client.completions.create(
                     model="gpt-3.5-turbo-instruct",
@@ -138,7 +139,7 @@ def collect_response_from_gpt(
                 db_path=db_path_list[i],
                 question=question_list[i],
                 sql_dialect=sql_dialect,
-                knowledge=knowledge_list[i],
+                knowledge=None,
             ),
             engine,
             client,
@@ -148,6 +149,7 @@ def collect_response_from_gpt(
         )
         for i in range(len(question_list))
     ]
+    return tasks
     responses = []
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
         future_to_task = {
@@ -183,58 +185,81 @@ if __name__ == "__main__":
         datasets=eval_data, db_root_path=args.db_root_path
     )
     assert len(question_list) == len(db_path_list) == len(knowledge_list)
+    print(question_list[0])
+    print(db_path_list[0])
+    print(knowledge_list[0])
 
-    if args.use_knowledge == "True":
-        responses = collect_response_from_gpt(
-            db_path_list,
-            question_list,
-            args.api_key,
-            args.engine,
-            args.sql_dialect,
-            args.num_processes,
-            knowledge_list,
-        )
-    else:
-        responses = collect_response_from_gpt(
-            db_path_list,
-            question_list,
-            args.api_key,
-            args.engine,
-            args.sql_dialect,
-            args.num_processes,
-        )
-
-    if args.chain_of_thought == "True":
-        output_name = (
-            args.data_output_path
-            + "predict_"
-            + args.mode
-            + "_"
-            + args.engine
-            + "_cot"
-            + "_"
-            + args.sql_dialect
-            + ".json"
-        )
-    else:
-        output_name = (
-            args.data_output_path
-            + "predict_"
-            + args.mode
-            + "_"
-            + args.engine
-            + "_"
-            + args.sql_dialect
-            + ".json"
-        )
-    generate_sql_file(sql_lst=responses, output_path=output_name)
-
-    print(
-        "successfully collect results from {} for {} evaluation; SQL dialect {} Use knowledge: {}; Use COT: {}".format(
-            args.engine,
-            args.mode,
-            args.sql_dialect,
-            args.use_knowledge,
-            args.chain_of_thought,
-        )
+    tasks = collect_response_from_gpt(
+        db_path_list,
+        question_list,
+        args.api_key,
+        args.engine,
+        args.sql_dialect,
+        args.num_processes,
+        # knowledge_list,
     )
+
+    db_names = [path.split(".")[1].split("/")[-1] for path in db_path_list]
+    prompts = [task[0] for task in tasks]
+
+    data = list(zip(db_names, prompts))
+
+    with open("./prompts.csv", mode="w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["db_name", "prompt"])
+        writer.writerows(data)
+
+    # if args.use_knowledge == "True":
+    #     responses = collect_response_from_gpt(
+    #         db_path_list,
+    #         question_list,
+    #         args.api_key,
+    #         args.engine,
+    #         args.sql_dialect,
+    #         args.num_processes,
+    #         knowledge_list,
+    #     )
+    # else:
+    #     responses = collect_response_from_gpt(
+    #         db_path_list,
+    #         question_list,
+    #         args.api_key,
+    #         args.engine,
+    #         args.sql_dialect,
+    #         args.num_processes,
+    #     )
+
+    # if args.chain_of_thought == "True":
+    #     output_name = (
+    #         args.data_output_path
+    #         + "predict_"
+    #         + args.mode
+    #         + "_"
+    #         + args.engine
+    #         + "_cot"
+    #         + "_"
+    #         + args.sql_dialect
+    #         + ".json"
+    #     )
+    # else:
+    #     output_name = (
+    #         args.data_output_path
+    #         + "predict_"
+    #         + args.mode
+    #         + "_"
+    #         + args.engine
+    #         + "_"
+    #         + args.sql_dialect
+    #         + ".json"
+    #     )
+    # # generate_sql_file(sql_lst=responses, output_path=output_name)
+
+    # print(
+    #     "successfully collect results from {} for {} evaluation; SQL dialect {} Use knowledge: {}; Use COT: {}".format(
+    #         args.engine,
+    #         args.mode,
+    #         args.sql_dialect,
+    #         args.use_knowledge,
+    #         args.chain_of_thought,
+    #     )
+    # )
