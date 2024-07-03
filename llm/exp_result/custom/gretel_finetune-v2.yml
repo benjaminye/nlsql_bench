@@ -1,0 +1,94 @@
+save_dir: "./experiment/"
+
+ablation:
+  use_ablate: false
+
+# Data Ingestion -------------------
+data:
+  file_type: "csv" # one of 'json', 'csv', 'huggingface'
+  path: "./gretel_data_1k.csv"
+  prompt:
+    >- # prompt, make sure column inputs are enclosed in {} brackets and that they match your data
+    {sql_context}
+
+    
+    -- Using valid SQLite, answer the following questions for the tables provided above.
+    
+    -- {sql_prompt}
+
+    
+    Generate the SQLite for the above question after thinking step by step:     
+    
+    In your response, you do not need to mention your intermediate steps. 
+        Do not include any comments in your response.
+        Do not need to start with the symbol ```
+        You only need to return the result SQLite SQL code
+        start from SELECT
+        
+        
+  prompt_stub:
+    >- # Stub to add for training at the end of prompt, for test set or inference, this is omitted; make sure only one variable is present
+    {sql}
+  test_size: 1 # Proportion of test as % of total; if integer then # of samples
+  train_size: 999 # Proportion of train as % of total; if integer then # of samples
+  train_test_split_seed: 42
+
+# Model Definition -------------------
+model:
+  device_map: "cuda:0"
+  hf_model_ckpt: "mistralai/Mistral-7B-Instruct-v0.3"
+  torch_dtype: "bfloat16"
+  attn_implementation: "flash_attention_2"
+  quantize: true
+  bitsandbytes:
+    load_in_4bit: true
+    bnb_4bit_compute_dtype: "bfloat16"
+    bnb_4bit_quant_type: "nf4"
+
+# LoRA Params -------------------
+lora:
+  task_type: "CAUSAL_LM"
+  r: 8
+  lora_alpha: 32
+  lora_dropout: 0.05
+  target_modules: "all-linear"
+  # to target specific modules
+  # target_modules:
+  #   - q_proj
+  #   - v_proj
+  #   - k_proj
+  #   - o_proj
+  #   - up_proj
+  #   - down_proj
+  #   - gate_proj
+
+# Training -------------------
+training:
+  training_args:
+    num_train_epochs: 1
+    per_device_train_batch_size: 4
+    gradient_accumulation_steps: 4
+    gradient_checkpointing: True
+    optim: "paged_adamw_32bit"
+    logging_steps: 1
+    learning_rate: 2.0e-4
+    bf16: true # Set to true for mixed precision training on Newer GPUs
+    tf32: true
+    # fp16: false     # Set to true for mixed precision training on Older GPUs
+    max_grad_norm: 0.3
+    warmup_ratio: 0.03
+    lr_scheduler_type: "constant"
+  sft_args:
+    max_seq_length: 2048
+    # neftune_noise_alpha: None
+
+inference:
+  max_new_tokens: 1024
+  use_cache: True
+  do_sample: True
+  top_p: 0.95
+  temperature: 0.2
+
+qa:
+  llm_tests:
+    - jaccard_similarity
