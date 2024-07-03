@@ -163,4 +163,4 @@ cython_debug/
 
 */_MACOSX
 /llm/mini_dev_data/*
-/data
+llm/data/*
