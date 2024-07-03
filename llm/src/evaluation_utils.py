@@ -72,7 +72,7 @@ def package_sqls(
                 + data_mode
                 + "_"
                 + engine
-                + "_cot_"
+                + "_"
                 + sql_dialect
                 + ".json",
                 "r",
